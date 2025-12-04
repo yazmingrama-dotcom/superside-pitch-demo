@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superside - Automated Creative Workbench Prototype</title>
+    <!-- Load React and ReactDOM from CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Load Lucide Icons from CDN -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <!-- Load Babel for JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Load Tailwind CSS framework and configure custom colors -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'ss-dark': '#0a211fff',
+              'ss-accent': '#d8ff85ff',
+              'ss-blue': '#2563EB', // Keeping a blue for primary action buttons
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        /* Configure a custom font and ensure full page height */
+        /* CONFIRMING INTER FONT IS SET GLOBALLY */
+        body { font-family: 'Inter', sans-serif; }
+        #root { height: 100vh; }
+        /* Fix for progress bar animation */
+        @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .animate-progress { animation: progress 5.5s ease-in-out forwards; }
+    </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useCallback } = React;
+
+// --- ICON FIX: Create a reusable Icon component from the global lucide object ---
+const Icon = ({ name, size, className }) => {
+  const [svg, setSvg] = useState(null);
+
+  React.useEffect(() => {
+    if (lucide.icons[name]) {
+      const icon = lucide.createIcons({ [name]: lucide.icons[name] });
+      setSvg(icon[name].to.outerHTML);
+    }
+  }, [name]);
+
+  if (!svg) return null;
+  
+  return <span 
+    className={className} 
+    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: size, height: size }}
+    dangerouslySetInnerHTML={{ __html: svg }} 
+  />;
+};
+
+// --- MOCK CONSTANTS & DATA ---
+
+const PERSONAS = [
+  { id: 'p_mm', name: 'Product Marketing Manager' },
+  { id: 'p_m', name: 'Project Manager' },
+  { id: 'b_m', name: 'Brand Manager' },
+  { id: 'c_t', name: 'Creative Team' }, 
+  { id: 'm_t', name: 'Marketing Team' }, 
+];
+
+const VISUAL_STYLES = [
+  { id: 'abstract', name: 'Abstract' },
+  { id: 'lifestyle', name: 'Lifestyle' }, 
+  { id: 'illustration', name: 'Illustration' },
+];
+
+const STATIC_IMAGE_URLS = {
+  // UPDATED: Static image seeds for Christmas and New Year themes
+  abstract: "https://picsum.photos/seed/geometric_holiday_lights/1000/800", 
+  lifestyle: "https://picsum.photos/seed/team_end_of_year_celebration/1000/800",
+  illustration: "https://picsum.photos/seed/new_year_goal_planner/1000/800",
+};
+
+// Helper function to get the appropriate URL based on format and style
+const getImageUrl = (style, format, index) => {
+    let url;
+    if (format === 'motion') {
+        // UPDATED: Motion image seeds matching the new themes
+        if (style === 'abstract') url = "https://picsum.photos/seed/abstract_motion_lights/1000/800";
+        else if (style === 'lifestyle') url = "https://picsum.photos/seed/lifestyle_motion_celebration/1000/800";
+        else if (style === 'illustration') url = "https://picsum.photos/seed/illustration_motion_growth/1000/800";
+        else url = "https://picsum.photos/seed/motion_default/1000/800";
+    } else {
+        // Static assets use static image seeds
+        url = STATIC_IMAGE_URLS[style];
+    }
+    // Add variant index and timestamp for unique image fetching and re-roll
+    return `${url}?variant=${index}&t=${Date.now()}`;
+};
+
+// Helper to simulate API delays and asynchronous workflow
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const initialFormData = {
+  persona: 'p_mm',
+  keyFactor: 'New Year’s Growth Strategy',
+  tone: 'Professional',
+  format: 'static',
+  visualStyle: 'abstract',
+  maxVariants: 10,
+};
+
+function App() {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState(initialFormData);
+  const [generatedAssets, setGeneratedAssets] = useState([]);
+  const [selectedAssetIndex, setSelectedAssetIndex] = useState(0);
+  const [loadingStage, setLoadingStage] = useState('');
+  const [usageStats, setUsageStats] = useState({ assets: 1250, batches: 25 });
+  const [error, setError] = useState(null);
+
+  // --- LOGIC HANDLERS ---
+
+  const addLog = (msg) => console.log(`[LOG] ${new Date().toLocaleTimeString()}: ${msg}`);
+
+  const handleGenerate = async () => {
+    if (formData.keyFactor.trim() === '') {
+      setError("Please input a Campaign Context to start generation.");
+      return;
+    }
+    setError(null);
+    setStep(2);
+    
+    try {
+      // Step 1: CLAUDE - COPY GENERATION
+      setLoadingStage('Analyzing Brand Guidelines & Generating Copy (Claude 3.5)...');
+      await wait(1500);
+      
+      // Step 2: RENDER PHASE - UPDATED FOR MOTION/STATIC
+      if (formData.format === 'motion') {
+          setLoadingStage(`After Effects Rendering: Synthesizing ${formData.visualStyle} video frames...`);
+      } else {
+          setLoadingStage(`FAL.ai: Synthesizing ${formData.visualStyle} visuals (Zero Retention Mode)...`);
+      }
+      await wait(2200);
+
+      // Step 3: MANIFEST GENERATION (FR-R.2 applied)
+      setLoadingStage('System: Compiling Metadata & JSON Manifest...');
+      await wait(1000);
+
+      // Find current persona name for the mock response
+      const currentPersona = PERSONAS.find(p => p.id === formData.persona);
+
+      // Mock Response Data based on the brief and Max Variants
+      const newAssets = Array.from({ length: 4 }, (_, i) => ({
+        id: i + 1,
+        // FIXED: Removed " - Variant ${i + 1}" suffix for cleaner headline
+        headline: `Scale Securely with ${formData.keyFactor}`,
+        subhead: `The only solution guaranteeing 99.999% uptime for ${currentPersona.name}.`,
+        cta: "Download the Guide",
+        imageType: formData.visualStyle, 
+        assetFormat: formData.format, // Store the format type
+        imageUrl: getImageUrl(formData.visualStyle, formData.format, i), 
+        layout: i % 2 === 0 ? 'split-left' : 'hero-center',
+      }));
+      
+      setGeneratedAssets(newAssets);
+      setUsageStats(prev => ({ assets: prev.assets + (formData.maxVariants * 4), batches: prev.batches + 1 }));
+      setStep(3);
+      setSelectedAssetIndex(0); // Reset selection on successful generation
+
+    } catch (e) {
+      setLoadingStage('ERROR: Generation failed. Check API keys.');
+      await wait(3000);
+      setStep(1);
+    }
+  };
+
+  const handleUpdateAsset = (field, value) => {
+    const updated = [...generatedAssets];
+    updated[selectedAssetIndex] = { ...updated[selectedAssetIndex], [field]: value };
+    setGeneratedAssets(updated);
+  };
+
+  const handleReRollImage = useCallback(() => {
+    // Implements FR-V.2: Image Isolation/Re-roll
+    const currentType = generatedAssets[selectedAssetIndex].imageType;
+    const currentFormat = generatedAssets[selectedAssetIndex].assetFormat;
+    const styleKeys = VISUAL_STYLES.map(s => s.id);
+    
+    // Simple mock logic: cycle to the next style in the list
+    const currentIndex = styleKeys.indexOf(currentType);
+    const nextIndex = (currentIndex + 1) % styleKeys.length;
+    const nextType = styleKeys[nextIndex];
+
+    // Get the new image URL based on the next type and current format
+    const newImageUrl = getImageUrl(nextType, currentFormat, selectedAssetIndex);
+    
+    // Update both the type (for internal tracking) and the URL
+    handleUpdateAsset('imageType', nextType);
+    handleUpdateAsset('imageUrl', newImageUrl);
+
+    addLog(`Image re-rolled for Variant ${selectedAssetIndex + 1}. Style updated to ${nextType}.`);
+  }, [selectedAssetIndex, generatedAssets]);
+  
+  // --- RENDER HELPERS ---
+
+  // This simulates the "Pixel Perfect" rendering engine (Layout Guardrails).
+  const AssetPreview = ({ asset }) => {
+    const isHero = asset.layout === 'hero-center';
+    const isMotion = asset.assetFormat === 'motion';
+    
+    const imageStyle = {
+      backgroundImage: `url('${asset.imageUrl}')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+
+    return (
+      <div className="w-full aspect-square bg-white shadow-2xl relative overflow-hidden border-4 border-slate-300 rounded-lg group">
+        
+        {/* Layout Engine - Enforcing margins and font weights */}
+        {isHero ? (
+          <div className="h-full flex flex-col">
+            <div className="h-[60%] w-full relative overflow-hidden">
+               {/* Use background image to fit the container */}
+               <div className="w-full h-full relative" style={imageStyle}>
+                  {/* Motion Overlay Logic - Inside the image container */}
+                  {isMotion && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+                        <div className="p-4 bg-white/90 rounded-full shadow-lg backdrop-blur-sm">
+                            {/* FIXED: Using 'play' icon which is just the triangle, and coloring it dark for contrast */}
+                            <Icon name="play" size={40} className="text-ss-dark fill-ss-dark"/>
+                        </div>
+                        <div className="absolute bottom-3 right-3 text-[10px] font-bold text-white bg-ss-dark/80 px-2 py-1 rounded-full uppercase tracking-wider">
+                            Motion Asset
+                        </div>
+                    </div>
+                  )}
+               </div>
+            </div>
+            <div className="h-[40%] p-8 bg-white flex flex-col items-center text-center justify-center">
+               <h2 className="text-3xl font-extrabold text-slate-900 mb-2 leading-tight">{asset.headline}</h2>
+               <p className="text-slate-600 text-base mb-4 max-w-[80%]">{asset.subhead}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="h-full grid grid-cols-5">
+            {/* Left Copy Zone - Fixed 3/5 width (EN-US ONLY) */}
+            <div className="col-span-3 p-8 flex flex-col justify-center bg-ss-dark text-white relative">
+               <h2 className="text-3xl font-bold mb-4 leading-tight">{asset.headline}</h2>
+               <p className="text-slate-300 text-base mb-6">{asset.subhead}</p>
+               <div className="flex items-center text-ss-accent font-semibold text-sm">
+                 {asset.cta}
+               </div>
+            </div>
+            {/* Right Image Zone - Fixed 2/5 width */}
+            <div className="col-span-2 relative bg-slate-100 overflow-hidden">
+               {/* Use background image to fit the container */}
+               <div className="w-full h-full relative" style={imageStyle}>
+                  {/* Motion Overlay Logic - Inside the image container */}
+                  {isMotion && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+                        <div className="p-4 bg-white/90 rounded-full shadow-lg backdrop-blur-sm">
+                            {/* FIXED: Using 'play' icon which is just the triangle, and coloring it dark for contrast */}
+                            <Icon name="play" size={40} className="text-ss-dark fill-ss-dark"/>
+                        </div>
+                        <div className="absolute bottom-3 right-3 text-[10px] font-bold text-white bg-ss-dark/80 px-2 py-1 rounded-full uppercase tracking-wider">
+                            Motion Asset
+                        </div>
+                    </div>
+                  )}
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // --- SCREEN 1: BRIEFING (Step 1) ---
+  if (step === 1) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans text-slate-800">
+        <div className="max-w-3xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+          <div className="bg-ss-dark p-6 text-white flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-3">
+                {/* Icon use fix */}
+                <Icon name="wand-2" size={24} className="text-ss-accent"/> The Creative Magic Engine
+              </h1>
+              {/* UPDATED TEXT HERE */}
+              <p className="text-slate-400 text-sm mt-1">Input campaign context for AI generation</p>
+            </div>
+          </div>
+          
+          {error && (
+            <div className="bg-red-100 text-red-700 p-4 border-l-4 border-red-500 flex items-center gap-3">
+              {/* Icon use fix */}
+              <Icon name="alert-circle" size={20} />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
+
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Target Persona</label>
+                <select 
+                  className="w-full p-3 border border-slate-300 rounded-lg bg-white focus:ring-ss-blue focus:border-ss-blue transition-all"
+                  value={formData.persona}
+                  onChange={(e) => setFormData({...formData, persona: e.target.value})}
+                >
+                  {/* UPDATED: Only showing the name, including new personas */}
+                  {PERSONAS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Tone of Voice</label>
+                <select 
+                  className="w-full p-3 border border-slate-300 rounded-lg bg-white focus:ring-ss-blue transition-all"
+                  value={formData.tone}
+                  onChange={(e) => setFormData({...formData, tone: e.target.value})}
+                >
+                  <option>Professional</option>
+                  <option>Motivational</option>
+                  <option>Urgent / Sales-driven</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Campaign Context (Time, Date, Idea)</label>
+              <input 
+                type="text" 
+                value={formData.keyFactor}
+                onChange={(e) => setFormData({...formData, keyFactor: e.target.value})}
+                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-ss-blue focus:outline-none transition-all"
+                placeholder="e.g., 2026 Q1 Launch, Summer Sale, or 'Shift from Security to ROI'"
+              />
+            </div>
+
+            {/* FR-V.1: Visual Style Selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Visual Style (Guides FAL.ai)</label>
+              <div className="grid grid-cols-3 gap-4">
+                {VISUAL_STYLES.map(style => (
+                  <button 
+                    key={style.id}
+                    onClick={() => setFormData({...formData, visualStyle: style.id})}
+                    className={`p-4 border rounded-xl text-sm font-medium flex flex-col items-center gap-2 transition-all ${formData.visualStyle === style.id ? 'border-ss-accent bg-ss-accent/10 text-ss-dark ring-2 ring-ss-accent/50' : 'border-slate-200 hover:border-slate-300 bg-slate-50'}`}
+                  >
+                    {/* Icon use fix */}
+                    <Icon name="image" size={20} />
+                    {style.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Template Controls (Updated to 2 columns) */}
+            <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+              {/* Removed Template Version Block */}
+              
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase">Asset Type</label>
+                <select 
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white text-sm"
+                  value={formData.format}
+                  onChange={(e) => setFormData({...formData, format: e.target.value})}
+                >
+                  <option value="static">Static (Figma)</option>
+                  <option value="motion">Motion (AE)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                {/* UPDATED LABEL HERE */}
+                <label className="text-xs font-bold text-slate-500 uppercase">Variants to Test</label>
+                <select 
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white text-sm"
+                  value={formData.maxVariants}
+                  onChange={(e) => setFormData({...formData, maxVariants: parseInt(e.target.value)})}
+                >
+                  {[10, 50, 120].map(v => <option key={v} value={v}>{v} Variants</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+              <button 
+                onClick={handleGenerate}
+                className="bg-ss-accent hover:bg-ss-accent/90 text-ss-dark px-8 py-3 rounded-lg font-bold flex items-center gap-2 transition-all shadow-lg"
+              >
+                {/* Icon use fix */}
+                <Icon name="wand-2" size={18} /> Generate Asset
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SCREEN 2: GENERATING (Step 2) ---
+  if (step === 2) {
+    return (
+      <div className="min-h-screen bg-ss-dark flex flex-col items-center justify-center p-4 font-sans text-white">
+        {/* Loading spinner uses new accent color */}
+        <div className="w-16 h-16 border-4 border-ss-accent border-t-transparent rounded-full animate-spin mb-8"></div>
+        <h2 className="text-2xl font-bold mb-2 animate-pulse">Running Creative Magic Engine...</h2>
+        <p className="text-slate-400 font-mono text-sm text-center max-w-lg">{loadingStage}</p>
+        
+        <div className="mt-12 w-full max-w-md bg-slate-800 rounded-full h-2 overflow-hidden">
+          {/* Progress bar uses new accent color */}
+          <div className="h-full bg-ss-accent animate-progress origin-left"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SCREEN 3: REVIEW & HANDOFF (Step 3) ---
+  if (step === 3 && generatedAssets.length > 0) {
+    const currentAsset = generatedAssets[selectedAssetIndex];
+
+    return (
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
+        {/* Header */}
+        <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 bg-ss-dark rounded flex items-center justify-center text-white font-bold text-sm">S</div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">Review Dashboard</h1>
+              {/* Removed template version reference here */}
+              <p className="text-xs text-slate-500">{formData.keyFactor} • Current Template</p> 
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+             <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1">
+               {/* Icon use fix */}
+               <Icon name="x" size={14} /> New Brief
+             </button>
+             {/* Export Button uses new accent color, text is dark for contrast */}
+             <button className="px-4 py-2 bg-ss-accent text-ss-dark text-sm font-bold rounded-lg flex items-center gap-2 hover:bg-ss-accent/90 transition-colors shadow-md">
+               {/* Icon use fix */}
+               <Icon name="figma" size={16} /> Export {formData.maxVariants} to Figma
+             </button>
+          </div>
+        </header>
+
+        <main className="flex-1 flex overflow-hidden">
+          {/* Left Sidebar: Controls & Metrics */}
+          <div className="w-80 bg-white border-r border-slate-200 p-6 flex flex-col gap-6 overflow-y-auto shrink-0">
+            
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Asset Variants (4 of {formData.maxVariants} Total)</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {generatedAssets.map((asset, idx) => (
+                  <div 
+                    key={asset.id}
+                    onClick={() => setSelectedAssetIndex(idx)}
+                    className={`aspect-square border-2 rounded-lg cursor-pointer transition-all overflow-hidden relative ${selectedAssetIndex === idx ? 'border-ss-blue ring-2 ring-ss-blue/50' : 'border-slate-200 hover:border-slate-300'}`}
+                  >
+                     <div className={`w-full h-full bg-cover bg-center`} style={{backgroundImage: `url('${asset.imageUrl}')`}}>
+                        <div className="p-2 transform scale-50 origin-top-left w-[200%]">
+                           <div className="font-bold text-xs text-white mb-1">Variant {idx + 1}</div>
+                        </div>
+                     </div>
+                     {selectedAssetIndex === idx && (
+                       <div className="absolute top-1 right-1 bg-ss-blue text-white rounded-full p-0.5">
+                         {/* Icon use fix */}
+                         <Icon name="check-circle" size={10} />
+                       </div>
+                     )}
+                  </div>
+                ))}
+                <div className="col-span-2 text-xs text-center p-2 text-slate-500">
+                    ... + {formData.maxVariants - 4} variants being generated in the manifest.
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">AI Review & Edit</h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1 mb-1">
+                    {/* Icon use fix */}
+                    <Icon name="type" size={12} /> Headline
+                  </label>
+                  <textarea 
+                    value={currentAsset.headline}
+                    onChange={(e) => handleUpdateAsset('headline', e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-ss-blue focus:outline-none"
+                    rows={2}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Editing here updates the copy for this asset.</p>
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                 {/* Re-roll CTA color matching screen 1 */}
+                 <button onClick={handleReRollImage} className="w-full bg-ss-accent hover:bg-ss-accent/90 text-ss-dark font-bold py-2 rounded-lg text-sm flex items-center justify-center gap-2 shadow-sm transition-colors">
+                    {/* Icon use fix */}
+                    <Icon name="refresh-cw" size={14} /> Re-roll Image Only
+                 </button>
+              </div>
+            </div>
+            
+            {/* FR-R.1: Usage Dashboard */}
+            <div className="mt-auto pt-6 border-t border-slate-100">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Pilot Usage Metrics</h3>
+                <div className="space-y-1">
+                    <div className="flex justify-between text-sm font-medium text-slate-700">
+                      <span>Total Assets Generated:</span>
+                      <span className="text-ss-blue font-bold">{usageStats.assets}</span>
+                    </div>
+                </div>
+            </div>
+          </div>
+
+          {/* Main Canvas: Preview */}
+          <div className="flex-1 bg-slate-100 flex flex-col items-center justify-center p-12 overflow-y-auto">
+             <div className="w-full max-w-2xl">
+                <AssetPreview asset={currentAsset} />
+                {/* Removed "Ready for Template" line completely */}
+                <div className="mt-4 flex justify-end items-center text-sm text-slate-500">
+                    <div className="flex items-center gap-2">
+                      {/* Icon use fix */}
+                      <Icon name="globe" size={16} /> Active Language: **EN-US**
+                    </div>
+                </div>
+             </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return <div className="p-4">Initializing App...</div>;
+}
+
+// Render the application
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>
